@@ -1,0 +1,97 @@
+version: 2
+jobs:
+  build:
+    working_directory: ~/featureflow/android-sdk-private
+    macos:
+      xcode: "10.3.0"
+    shell: /bin/bash --login -eo pipefail
+    environment:
+      TERM: dumb
+      QEMU_AUDIO_DRV: none
+      _JAVA_OPTIONS: "-XX:+UnlockExperimentalVMOptions -XX:+UseCGroupMemoryLimitForHeap -Xms2048m -Xmx4096m"scripts
+      GRADLE_OPTS: "-Dorg.gradle.daemon=false"
+      JVM_OPTS: -Xmx3200m
+      ANDROID_HOME: "/usr/local/share/android-sdk"
+      ANDROID_SDK_HOME: "/usr/local/share/android-sdk"
+      ANDROID_SDK_ROOT: "/usr/local/share/android-sdk"
+
+    steps:
+      - checkout
+      - run:
+          name: Setup env
+          command: |
+            echo 'export PATH="$PATH:/usr/local/share/android-sdk/tools/bin"' >> $BASH_ENV
+            echo 'export PATH="$PATH:/usr/local/share/android-sdk/platform-tools"' >> $BASH_ENV
+      - run:
+          name: Install Android sdk
+          command: |
+            HOMEBREW_NO_AUTO_UPDATE=1 brew tap homebrew/cask
+            HOMEBREW_NO_AUTO_UPDATE=1 brew cask install android-sdk
+      - run: sudo mkdir -p /usr/local/android-sdk-linux/licenses
+      - run:
+          name: Install emulator dependencies
+          command: yes | sdkmanager "platform-tools" "platforms;android-25" "extras;intel;Hardware_Accelerated_Execution_Manager" "build-tools;26.0.2" "system-images;android-25;default;x86" "emulator" | grep -v = || true
+      - run: |
+          set +o pipefail
+          yes | sdkmanager --licenses
+      - run:
+          name: Download Dependencies
+          command: ./gradlew androidDependencies
+
+      - run: unset ANDROID_NDK_HOME
+
+      - run: echo no | avdmanager create avd -n ci-android-avd -f -k "system-images;android-25;default;x86"
+      - run:
+          command: $ANDROID_HOME/emulator/emulator -avd ci-android-avd -netdelay none -netspeed full -no-audio -no-window -no-snapshot -no-boot-anim
+          background: true
+          timeout: 1200
+          no_output_timeout: 2h
+
+      - run: ./gradlew :featureflow-android-sdk:assembleDebug --console=plain -PdisablePreDex
+
+      - run:
+          name: Wait for emulator to boot
+          command: .circleci/scripts/circle-android wait-for-boot
+
+      - run:
+          name: Validate retrieving emulator SDK version
+          command: |
+            while ! adb shell getprop ro.build.version.sdk; do
+              sleep 1
+            done
+
+      - run:
+          name: Disable mobile data for network tests
+          command: adb shell svc data disable
+
+      - run:
+          name: Fetch logcat and props
+          background: true
+          command: |
+            mkdir -p ~/artifacts
+            adb shell getprop >> ~/artifacts/props.txt
+            adb logcat >> ~/artifacts/logcat.txt
+
+      - run:
+          name: Run Tests
+          command: ./gradlew :featureflow-android-sdk:connectedAndroidTest --console=plain -PdisablePreDex
+          no_output_timeout: 2h
+
+      - run: ./gradlew packageRelease --console=plain -PdisablePreDex
+
+      - run:
+          name: Save test results
+          command: |
+                mkdir -p ~/test-results
+                cp -r ./featureflow-android-sdk/build/outputs/androidTest-results/* ~/test-results/
+          when: always
+      - run:
+          name: Save artifacts
+          command: |
+            mv ./featureflow-android-sdk/build/reports ~/artifacts
+            mv ./featureflow-android-sdk/build/outputs ~/artifacts
+          when: always
+      - store_test_results:
+            path: ~/test-results
+      - store_artifacts:
+            path: ~/artifacts
