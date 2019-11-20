@@ -1,0 +1,5 @@
+# compiler: R8
+# compiler_version: 1.5.68
+# pg_map_id: c15317f
+io.featureflow.android.sdk.BuildConfig -> io.featureflow.android.sdk.BuildConfig:
+    1:1:void <init>():6:6 -> <init>
