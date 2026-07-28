@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+      Declared by the library so a consuming app does not have to add it. Merged into the app
+      manifest at build time.
+    -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+</manifest>
