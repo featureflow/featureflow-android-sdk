@@ -99,7 +99,19 @@ in a comment — keep those comments if you touch the code:
 Unit tests run under Robolectric because the model layer uses `org.json`, whose unit-test stubs
 throw by default.
 
-There is no live-server integration test yet. `../featureflow-client-sdk-testbed` holds the shared
+Two harnesses exist for testing against a live environment:
+
+- `harness/run.sh` — JVM, no Android toolchain. Compiles the platform-independent core together
+  with `harness/Harness.kt` in one `kotlinc` invocation, which puts the harness in the same module
+  so it can see `internal` declarations — the same trick the unit tests use. Covers the wire
+  contract, rule walking and client-side time resolution.
+- `example/` — an Android Compose app for the framework-dependent half: `SharedPreferences`
+  caching, `ProcessLifecycleOwner` foreground refresh, polling, `StateFlow` recomposition.
+
+The split mirrors the `core/` vs framework split in the source, and is the reason the JVM harness
+is possible at all.
+
+There is no automated live-server integration test yet. `../featureflow-client-sdk-testbed` holds the shared
 cross-SDK scenarios this SDK and the iOS SDK must both satisfy; wiring this repo up to it is
 outstanding — see `../ops/SDK-BACKLOG.md`.
 

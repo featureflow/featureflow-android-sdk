@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "featureflow-android-sdk"
 include(":featureflow")
+include(":example")

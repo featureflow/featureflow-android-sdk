@@ -283,6 +283,31 @@ assertTrue(featureflow.evaluate("new-checkout").isOn())
 Write a test for **both** branches of every flag. An untested `off` branch is the usual reason a
 rollback fails.
 
+## Try it against your own environment
+
+Two harnesses, because they cover different halves of the SDK.
+
+**JVM harness** — no Android SDK, Gradle or emulator needed, just a JDK and `kotlinc`:
+
+```bash
+FEATUREFLOW_CLIENT_KEY=sdk-js-env-xxxx ./harness/run.sh
+```
+
+Interactive: `list`, `eval <key>`, `json <key>`, `raw <key>`, `track <goal> [value]`,
+`impression <key>`, `user <id>`, `refresh`. `eval` shows the rules behind an evaluation,
+including which ones were partially evaluated and resolved on-device. See
+[harness/README.md](harness/README.md).
+
+**On-device app** — for the parts that need the framework: `SharedPreferences` caching,
+foreground refresh, polling and Compose recomposition:
+
+```bash
+echo "featureflow.clientKey=sdk-js-env-xxxx" >> local.properties
+./gradlew :example:installDebug
+```
+
+See [example/README.md](example/README.md) for what to check.
+
 ## Development
 
 ```bash
