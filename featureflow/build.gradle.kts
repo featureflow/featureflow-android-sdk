@@ -65,16 +65,17 @@ mavenPublishing {
     // namespace and with the same GPG key.
     publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL, automaticRelease = true)
 
-    // Central rejects unsigned artifacts, so CI must sign — but requiring a GPG key
-    // unconditionally breaks `publishToMavenLocal`, which is how you check the POM and the
-    // artifact set before a real release. Sign when a key is configured; the release workflow
-    // asserts it was.
-    if (project.findProperty("signingInMemoryKey") != null ||
-        project.findProperty("signing.keyId") != null
-    ) {
+    // Sign unless explicitly opted out with -PskipSigning.
+    //
+    // This was previously the other way round — sign only *if* a key looked present — so that
+    // local publishToMavenLocal worked without one. That condition silently evaluated false in
+    // CI as well, producing an unsigned bundle Central would have rejected, and an input check
+    // ("is the secret set?") could not catch it. Defaulting to signing means a misconfiguration
+    // fails loudly; opting out is now a deliberate, visible flag.
+    //
+    //   ./gradlew :featureflow:publishToMavenLocal -PskipSigning=true
+    if (!project.hasProperty("skipSigning")) {
         signAllPublications()
-    } else {
-        logger.lifecycle("No signing key configured — publishing unsigned (local use only).")
     }
 
     coordinates(group.toString(), "featureflow-android-sdk", version.toString())

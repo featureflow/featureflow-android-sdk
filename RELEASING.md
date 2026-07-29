@@ -120,10 +120,17 @@ still unproven.
 ls ~/.m2/repository/io/featureflow/featureflow-android-sdk/<version>/
 ```
 
-Central requires four artifacts — `.aar`, `-sources.jar`, `-javadoc.jar`, `.pom` — and CI asserts
-all four exist. Signing is skipped locally when no key is configured, which is deliberate: it
-keeps this check available without handling the GPG key. The release workflow asserts the key
-was present, so a convenience for local use cannot become an unsigned release.
+```bash
+./gradlew :featureflow:publishToMavenLocal -PskipSigning=true    # no GPG key needed
+```
+
+Central requires four artifacts — `.aar`, `-sources.jar`, `-javadoc.jar`, `.pom` — plus a `.asc`
+signature for each, and CI asserts all of them exist.
+
+**Signing is on by default and `-PskipSigning` is the only way out.** It used to be the other way
+round — sign only if a key looked present — which silently produced an unsigned bundle in CI,
+caught only because the dry run checks for the `.asc` files. Verifying the outcome beats
+verifying the input.
 
 ## Versioning
 

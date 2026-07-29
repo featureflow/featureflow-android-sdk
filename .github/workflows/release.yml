@@ -109,6 +109,28 @@ jobs:
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_KEY_PASSWORD }}
         run: ./gradlew :featureflow:publishToMavenLocal --no-configuration-cache
 
+      # Assert the *outcome*, not the input. The previous check confirmed the secret was set,
+      # which it was — while the build silently produced an unsigned bundle anyway.
+      - name: Verify the artifacts are signed
+        if: github.event_name == 'workflow_dispatch' && inputs.dry_run
+        run: |
+          DIR=~/.m2/repository/io/featureflow/featureflow-android-sdk
+          VERSION=$(grep -oE '^version = "[^"]+"' featureflow/build.gradle.kts \
+            | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+          MISSING=0
+          for ext in .aar -sources.jar -javadoc.jar .pom; do
+            SIG="$DIR/$VERSION/featureflow-android-sdk-$VERSION$ext.asc"
+            if [ -f "$SIG" ]; then
+              echo "  ok  $(basename "$SIG")"
+            else
+              echo "::error::missing signature $SIG"; MISSING=1
+            fi
+          done
+          [ $MISSING -eq 0 ] || {
+            echo "::error::Central rejects unsigned artifacts. Check SIGNING_KEY and"
+            echo "::error::SIGNING_KEY_PASSWORD on the 'release' environment."
+            exit 1; }
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
