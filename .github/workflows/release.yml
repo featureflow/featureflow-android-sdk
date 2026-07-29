@@ -66,13 +66,32 @@ jobs:
       # Signing is conditional in build.gradle.kts so local publishing works without a key.
       # That convenience must not silently produce an unsigned release: Central would reject it,
       # but failing here is clearer than failing on upload.
+      # Passed through `env` rather than interpolated into the script: SIGNING_KEY is a
+      # multi-line ASCII-armoured block, and splicing that into a shell test is both fragile
+      # and the wrong way to handle a secret.
       - name: Require a signing key
+        env:
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
         run: |
-          if [ -z "${{ secrets.SIGNING_KEY }}" ]; then
-            echo "::error::SIGNING_KEY is not set. Central rejects unsigned artifacts."
-            echo "::error::See RELEASING.md — the Java SDK's existing GPG key can be reused."
+          if [ -z "$SIGNING_KEY" ]; then
+            echo "::error::SIGNING_KEY is not set on the 'release' environment."
+            echo "::error::Central rejects unsigned artifacts. See RELEASING.md."
             exit 1
           fi
+          if [ -z "$SIGNING_KEY_PASSWORD" ]; then
+            echo "::error::SIGNING_KEY_PASSWORD is not set on the 'release' environment."
+            exit 1
+          fi
+          # Length only — never the value.
+          echo "signing key present (${#SIGNING_KEY} chars), passphrase present"
+          case "$SIGNING_KEY" in
+            *"BEGIN PGP PRIVATE KEY BLOCK"*) echo "armoured private key detected" ;;
+            *) echo "::error::SIGNING_KEY does not look like an armoured private key. It must"
+               echo "::error::include the -----BEGIN/-----END lines. Re-export with:"
+               echo "::error::  gpg --armor --export-secret-keys <FINGERPRINT>"
+               exit 1 ;;
+          esac
 
       - name: Publish to Maven Central
         if: github.event_name == 'release' || inputs.dry_run == false
