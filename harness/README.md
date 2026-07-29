@@ -17,6 +17,9 @@ It compiles the SDK's platform-independent core — `JsonValue`, `FeatureflowUse
 base64url path encoding, response parsing, rule walking, client-side resolution of
 `featureflow.date` / `featureflow.hourofday`, and the outgoing event batch.
 
+The harness polls on its own timer (`--poll <seconds>`, default 15), so a dashboard change
+appears without a command — matching how the SDK behaves in an app.
+
 It does **not** cover `FeatureflowClient`, `FeatureStore` or `AndroidLogcatLogger`, which need the
 Android framework — no `SharedPreferences` caching, no `ProcessLifecycleOwner` foreground refresh,
 no polling loop. Use [`../example`](../example) on a device or emulator for those.

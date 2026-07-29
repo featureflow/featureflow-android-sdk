@@ -105,7 +105,8 @@ Two harnesses exist for testing against a live environment:
 - `harness/run.sh` — JVM, no Android toolchain. Compiles the platform-independent core together
   with `harness/Harness.kt` in one `kotlinc` invocation, which puts the harness in the same module
   so it can see `internal` declarations — the same trick the unit tests use. Covers the wire
-  contract, rule walking and client-side time resolution.
+  contract, rule walking and client-side time resolution. It polls on its own timer, because
+  `FeatureflowClient` — which owns the real poll loop — needs a `Context` and so is not used here.
 - `example/` — an Android Compose app for the framework-dependent half: `SharedPreferences`
   caching, `ProcessLifecycleOwner` foreground refresh, polling, `StateFlow` recomposition.
 

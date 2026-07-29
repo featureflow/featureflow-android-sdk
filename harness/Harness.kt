@@ -1,6 +1,8 @@
 package io.featureflow.android
 
 import java.util.Date
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 /**
  * Interactive harness for exercising the SDK against a real Featureflow environment, without the
@@ -52,6 +54,7 @@ private fun usage(): Nothing {
             --user <id>          user id to evaluate for (default: harness-user)
             --base-url <url>     override the evaluate host (self-hosted or staging)
             --events-url <url>   override the events host
+            --poll <seconds>     polling interval (default 15; 0 disables)
             --once               print the evaluation once and exit, for scripting and CI
 
         Environment variables: FEATUREFLOW_CLIENT_KEY, FEATUREFLOW_BASE_URL,
@@ -93,6 +96,7 @@ fun main(args: Array<String>) {
     )
 
     var user = FeatureflowUser(option("user") ?: "harness-user")
+    val pollSeconds = option("poll")?.toLongOrNull() ?: 15
     val rest = RestClient(apiKey, config)
 
     heading("Connecting")
@@ -100,6 +104,7 @@ fun main(args: Array<String>) {
     println("  evaluate    ${config.baseUrl}")
     println("  events      ${config.eventsUrl}")
     println("  user        ${user.id}")
+    println("  poll        ${if (pollSeconds > 0) "${pollSeconds}s" else "disabled"}")
 
     var controls: Map<String, EvaluatedControl> = emptyMap()
 
@@ -127,6 +132,37 @@ fun main(args: Array<String>) {
 
     if (args.contains("--once")) return
 
+    if (pollSeconds > 0) {
+        // FeatureflowClient owns the real poll loop, but it needs an Android Context, so this
+        // harness talks to RestClient directly and has to poll itself. Without this the harness
+        // would never show a dashboard change on its own — which is not how the SDK behaves.
+        val poller = Executors.newSingleThreadScheduledExecutor { runnable ->
+            Thread(runnable, "featureflow-harness-poll").apply { isDaemon = true }
+        }
+        poller.scheduleWithFixedDelay({
+            try {
+                val previous = features()
+                controls = rest.evaluate(user)
+                val next = features()
+                if (next != previous) {
+                    heading("Changed at " + java.time.LocalTime.now().withNano(0))
+                    // Show only what moved; the full list is a `list` away.
+                    next.forEach { (key, variant) ->
+                        val was = previous[key]
+                        if (was != variant) println("  $key: ${was ?: "(new)"} -> $variant")
+                    }
+                    previous.keys.filterNot { next.containsKey(it) }
+                        .forEach { println("  $it: ${previous[it]} -> (removed)") }
+                    print("\n> ")
+                    System.out.flush()
+                }
+            } catch (e: Exception) {
+                // A failed poll must not kill the loop, exactly as in the SDK.
+                System.err.println("  [poll] failed: ${e.message}")
+            }
+        }, pollSeconds, pollSeconds, TimeUnit.SECONDS)
+    }
+
     heading("Commands")
     println(
         """
@@ -141,6 +177,9 @@ fun main(args: Array<String>) {
           quit
         """.trimIndent()
     )
+    if (pollSeconds > 0) {
+        println("\nFlip a flag in the dashboard and it will appear above within ${pollSeconds}s.")
+    }
 
     while (true) {
         print("\n> ")
