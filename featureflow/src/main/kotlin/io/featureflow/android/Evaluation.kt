@@ -1,6 +1,5 @@
 package io.featureflow.android
 
-import java.util.Locale
 
 /**
  * The result of evaluating a feature.
@@ -8,20 +7,20 @@ import java.util.Locale
  * Mirrors `Evaluate` in every other Featureflow SDK, so the idiom reads the same across the
  * stack: [isOn], [isOff], [`is`], [value], [jsonValue].
  *
- * Variant comparison is case-insensitive, matching the JavaScript SDK.
+ * Variant comparison is **exact**, and [value] returns the key exactly as configured. Keys are
+ * lowercase by convention, so case-folding bought nothing while making [value] misreport a key
+ * defined as `Wizard`. See CONTRACT.md in featureflow-client-sdk-testbed.
  */
 class Evaluation internal constructor(
-    variant: String,
+    private val variant: String,
     private val payload: JsonValue? = null
 ) {
-
-    private val variant: String = variant.lowercase(Locale.ROOT)
 
     /** The evaluated variant key — `"on"`, `"off"`, or whatever the feature defines. */
     fun value(): String = variant
 
     /** True when the feature evaluated to [variant]. */
-    fun `is`(variant: String): Boolean = this.variant == variant.lowercase(Locale.ROOT)
+    fun `is`(variant: String): Boolean = this.variant == variant
 
     /** True when the feature evaluated to `on`. */
     fun isOn(): Boolean = variant == "on"

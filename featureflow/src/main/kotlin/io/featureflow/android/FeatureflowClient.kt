@@ -123,11 +123,10 @@ class FeatureflowClient private constructor(
     fun allFeatures(): Map<String, String> {
         val result = mutableMapOf<String, String>()
         store.current.forEach { (key, control) ->
-            result[key] = RuleEvaluator.evaluate(control)?.variant?.lowercase()
-                ?: fallbackVariant(key)
+            result[key] = RuleEvaluator.evaluate(control)?.variant ?: fallbackVariant(key)
         }
         config.defaultVariants.forEach { (key, variant) ->
-            result.putIfAbsentCompat(key, variant.lowercase())
+            result.putIfAbsentCompat(key, variant)
         }
         return result
     }

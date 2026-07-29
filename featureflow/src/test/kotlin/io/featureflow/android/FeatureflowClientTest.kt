@@ -117,7 +117,9 @@ class FeatureflowClientTest {
 
         val evaluation = featureflow.evaluate("layout")
         assertEquals("wizard", evaluation.value())
-        assertTrue(evaluation.`is`("WIZARD"))
+        // Exact comparison: a variant defined as `wizard` does not answer to `WIZARD`.
+        assertTrue(evaluation.`is`("wizard"))
+        assertFalse(evaluation.`is`("WIZARD"))
         assertEquals(3, evaluation.jsonValue()?.get("steps")?.intValue)
     }
 
