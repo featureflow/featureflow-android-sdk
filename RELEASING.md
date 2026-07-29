@@ -29,35 +29,70 @@ a username/password pair, not your login. Add as repository secrets:
 
 ### 3. GPG signing key
 
-Central rejects unsigned artifacts. **Reuse the Java SDK's key** so both artifacts are signed by
-the same identity — it lives encrypted at `featureflow-java-sdk/codesigning.asc.enc` and is
-decrypted in `deploy-prod.sh` with `${ENCKEY}`.
+Central rejects unsigned artifacts.
+
+`featureflow-java-sdk` has an encrypted key at `codesigning.asc.enc`, decrypted in CI with an
+`ENCKEY` CircleCI environment variable. **Treat that as unavailable unless the passphrase is in a
+password manager** — CircleCI masks environment variables, so it cannot be read back. The
+encrypted file also predates the public key committed alongside it (Dec 2024 vs Aug 2025), so it
+likely holds a superseded key anyway.
+
+Generating a fresh key is the cleaner path. Central does not require key continuity between
+releases.
 
 ```bash
-# from a checkout of featureflow-java-sdk, with ENCKEY to hand
-openssl aes-256-cbc -d -in codesigning.asc.enc -out codesigning.asc -k "$ENCKEY" -pbkdf2
+gpg --full-generate-key
 ```
 
-Then add as repository secrets:
+| Prompt | Answer |
+|---|---|
+| Key type | `1` (RSA and RSA) |
+| Key size | `4096` |
+| Valid for | `2y` — renewable, and expiry does not invalidate past releases |
+| Real name | `Featureflow` |
+| Email | `admin@featureflow.io` |
+| Passphrase | becomes `SIGNING_KEY_PASSWORD` |
+
+**Put the passphrase and fingerprint in the password manager immediately.** Losing them means
+repeating this, which is how the previous key was lost.
+
+```bash
+gpg --list-secret-keys --keyid-format=long     # fingerprint under `sec`; call it $KEY
+```
+
+**Publish the public key.** Central verifies signatures against a public keyserver and rejects the
+upload without it:
+
+```bash
+gpg --keyserver keyserver.ubuntu.com --send-keys $KEY
+curl -s -o /dev/null -w "%{http_code}\n" \
+  "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x$KEY"    # expect 200
+```
+
+Export the private key and load it as a secret, then delete the file:
+
+```bash
+gpg --armor --export-secret-keys $KEY > codesigning.asc
+gh secret set SIGNING_KEY -R featureflow/featureflow-android-sdk --env release < codesigning.asc
+gh secret set SIGNING_KEY_PASSWORD -R featureflow/featureflow-android-sdk --env release
+rm codesigning.asc
+```
+
+Back the key up to the password manager as well — `gpg --armor --export-secret-keys $KEY`.
 
 | Secret | Value |
 |---|---|
 | `SIGNING_KEY` | the full ASCII-armoured private key, `-----BEGIN…` to `-----END…` inclusive |
 | `SIGNING_KEY_PASSWORD` | its passphrase |
 
-Confirm the public key is on a keyserver Central checks, or it will reject the bundle:
-
-```bash
-gpg --keyserver keyserver.ubuntu.com --send-keys <KEY_ID>
-```
-
-The Java SDK publishing successfully implies this is already done for that key.
-
 ### 4. Environment
 
-The workflow uses an environment named `release`. Create it under **Settings → Environments** and
-hold the four secrets there rather than at repository level, so a required reviewer can gate
-publishing.
+The `release` environment already exists, with deployment policies allowing the `main` branch
+(for `dry_run`) and semver tags (for releases). A branch-only policy would **block** releases,
+because a GitHub Release runs the workflow on the tag ref, not on `main`.
+
+Hold the four secrets in that environment rather than at repository level. Add a required
+reviewer there if you want a human gate — worth considering, since Central is immutable.
 
 ## Cutting a release
 
