@@ -16,11 +16,12 @@ The Featureflow **client-side** SDK for Android (Kotlin, Gradle/AGP). It is a si
 ./gradlew :featureflow:testDebugUnitTest
 ```
 
-**The Gradle wrapper JAR is not committed** — it was generated on a machine without Gradle
-installed. Run `gradle wrapper --gradle-version 8.9` once to produce `gradlew` and
-`gradle/wrapper/gradle-wrapper.jar`; `gradle-wrapper.properties` is already correct.
+Building needs the Android SDK — either `ANDROID_HOME`, or a `local.properties` with
+`sdk.dir=/path/to/sdk` (git-ignored). Verified 2026-07-29 against AGP 8.5.2, Gradle 8.9,
+JDK 21 and Android SDK platform 34.
 
-Building also needs the Android SDK (`ANDROID_HOME` or `local.properties`).
+The `example` module also reads `featureflow.clientKey` from `local.properties`, so a real key
+never has to be committed.
 
 ### Verifying without the Android toolchain
 

@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -16,7 +18,7 @@ android {
 
         // Supply the key without committing it:
         //   echo "featureflow.clientKey=sdk-js-env-xxxx" >> local.properties
-        val localProperties = java.util.Properties()
+        val localProperties = Properties()
         val localFile = rootProject.file("local.properties")
         if (localFile.exists()) localProperties.load(localFile.inputStream())
         buildConfigField(
