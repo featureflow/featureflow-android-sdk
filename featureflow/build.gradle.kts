@@ -1,7 +1,16 @@
+import com.vanniktech.maven.publish.SonatypeHost
+
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.maven.publish)
 }
+
+// Single source of truth for the published version. Must match FeatureflowVersion.CURRENT in
+// RestClient.kt, which is sent as the X-Featureflow-Client header — CI fails a release if they
+// disagree.
+version = "0.1.0"
+group = "io.featureflow"
 
 android {
     namespace = "io.featureflow.android"
@@ -37,11 +46,6 @@ android {
         }
     }
 
-    publishing {
-        singleVariant("release") {
-            withSourcesJar()
-        }
-    }
 }
 
 dependencies {
@@ -53,4 +57,56 @@ dependencies {
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.kotlinx.coroutines.test)
+}
+
+mavenPublishing {
+    // The new Central Portal, not the retired OSSRH/Nexus endpoints. The Java SDK already
+    // publishes this way (central-publishing-maven-plugin), under the same io.featureflow
+    // namespace and with the same GPG key.
+    publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL, automaticRelease = true)
+
+    // Central rejects unsigned artifacts, so CI must sign — but requiring a GPG key
+    // unconditionally breaks `publishToMavenLocal`, which is how you check the POM and the
+    // artifact set before a real release. Sign when a key is configured; the release workflow
+    // asserts it was.
+    if (project.findProperty("signingInMemoryKey") != null ||
+        project.findProperty("signing.keyId") != null
+    ) {
+        signAllPublications()
+    } else {
+        logger.lifecycle("No signing key configured — publishing unsigned (local use only).")
+    }
+
+    coordinates(group.toString(), "featureflow-android-sdk", version.toString())
+
+    pom {
+        name.set("Featureflow Android SDK")
+        description.set(
+            "Featureflow client SDK for Android — feature flags, gradual rollouts and experiments."
+        )
+        url.set("https://github.com/featureflow/featureflow-android-sdk")
+        inceptionYear.set("2026")
+
+        licenses {
+            license {
+                name.set("MIT License")
+                url.set("https://opensource.org/licenses/MIT")
+            }
+        }
+        developers {
+            developer {
+                id.set("featureflow")
+                name.set("Featureflow")
+                email.set("support@featureflow.io")
+                url.set("https://featureflow.io")
+            }
+        }
+        scm {
+            url.set("https://github.com/featureflow/featureflow-android-sdk")
+            connection.set("scm:git:git://github.com/featureflow/featureflow-android-sdk.git")
+            developerConnection.set(
+                "scm:git:ssh://git@github.com/featureflow/featureflow-android-sdk.git"
+            )
+        }
+    }
 }

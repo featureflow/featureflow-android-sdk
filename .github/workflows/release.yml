@@ -1,0 +1,97 @@
+name: Release
+
+# Triggered by publishing a GitHub Release, matching featureflow-node-sdk. A release rather than
+# a bare tag push, so release notes are written before anything ships and a draft can sit without
+# triggering a publish.
+#
+# Unlike the iOS SDK — where SwiftPM has no registry and the tag *is* the release — Android
+# genuinely publishes: a signed bundle goes to the Sonatype Central Portal, and once released it
+# **cannot be deleted or overwritten**. Everything before the publish step exists because of that.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Build and verify the bundle without publishing
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment: release
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # A tag disagreeing with the version constants ships an SDK that misreports itself in the
+      # X-Featureflow-Client header — which is how server-side usage reporting attributes
+      # traffic, and how we will eventually know which SDK versions are live. Central is
+      # immutable, so this cannot be fixed after the fact, only superseded.
+      - name: Check tag matches the version constants
+        if: github.event_name == 'release'
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          TAG_VERSION="${TAG#v}"
+
+          GRADLE_VERSION=$(grep -oE '^version = "[^"]+"' featureflow/build.gradle.kts \
+            | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+          SOURCE_VERSION=$(grep -oE 'const val CURRENT: String = "[^"]+"' \
+            featureflow/src/main/kotlin/io/featureflow/android/RestClient.kt \
+            | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+
+          echo "tag=$TAG_VERSION  build.gradle.kts=$GRADLE_VERSION  FeatureflowVersion.CURRENT=$SOURCE_VERSION"
+
+          FAILED=0
+          [ "$TAG_VERSION" = "$GRADLE_VERSION" ] || { echo "::error::tag != build.gradle.kts version"; FAILED=1; }
+          [ "$TAG_VERSION" = "$SOURCE_VERSION" ] || { echo "::error::tag != FeatureflowVersion.CURRENT"; FAILED=1; }
+          exit $FAILED
+
+      - name: Unit tests
+        run: ./gradlew :featureflow:testDebugUnitTest
+
+      - name: Assemble release
+        run: ./gradlew :featureflow:assembleRelease
+
+      # Signing is conditional in build.gradle.kts so local publishing works without a key.
+      # That convenience must not silently produce an unsigned release: Central would reject it,
+      # but failing here is clearer than failing on upload.
+      - name: Require a signing key
+        run: |
+          if [ -z "${{ secrets.SIGNING_KEY }}" ]; then
+            echo "::error::SIGNING_KEY is not set. Central rejects unsigned artifacts."
+            echo "::error::See RELEASING.md — the Java SDK's existing GPG key can be reused."
+            exit 1
+          fi
+
+      - name: Publish to Maven Central
+        if: github.event_name == 'release' || inputs.dry_run == false
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_KEY_PASSWORD }}
+        run: ./gradlew publishAllPublicationsToMavenCentralRepository --no-configuration-cache
+
+      - name: Build the bundle without publishing
+        if: github.event_name == 'workflow_dispatch' && inputs.dry_run
+        env:
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_KEY_PASSWORD }}
+        run: ./gradlew :featureflow:publishToMavenLocal --no-configuration-cache
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: maven-artifacts
+          path: featureflow/build/outputs/

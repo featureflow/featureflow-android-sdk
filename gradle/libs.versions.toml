@@ -5,6 +5,7 @@ coroutines = "1.8.1"
 lifecycle = "2.8.4"
 junit = "4.13.2"
 robolectric = "4.13"
+maven-publish = "0.29.0"
 androidx-test-core = "1.6.1"
 compose-bom = "2024.06.00"
 activity-compose = "1.9.1"
@@ -28,4 +29,5 @@ androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-ru
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
+maven-publish = { id = "com.vanniktech.maven.publish", version.ref = "maven-publish" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
