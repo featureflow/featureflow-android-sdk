@@ -60,7 +60,10 @@ jobs:
       - name: Check the expected artifacts exist
         run: |
           DIR=~/.m2/repository/io/featureflow/featureflow-android-sdk
-          VERSION=$(ls "$DIR")
+          # Read the version from the build file, not `ls $DIR` — that directory also contains
+          # maven-metadata-local.xml, so `ls` returns two entries and mangles the path.
+          VERSION=$(grep -oE '^version = "[^"]+"' featureflow/build.gradle.kts \
+            | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
           echo "version: $VERSION"
           for ext in .aar -sources.jar -javadoc.jar .pom; do
             FILE="$DIR/$VERSION/featureflow-android-sdk-$VERSION$ext"
