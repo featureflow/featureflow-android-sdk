@@ -105,3 +105,47 @@ class ConditionsTest {
         assertFalse(Conditions.test("equals", JsonValue.of("a"), emptyList()))
     }
 }
+
+/**
+ * Regression tests for the date-only format the dashboard's date picker emits.
+ *
+ * Found by running the harness against a real environment: a `lambda-redirect` rule targeting
+ * `featureflow.date after 2026-07-03` evaluated to the fallback variant instead of the scheduled
+ * one, because only full timestamps parsed. JavaScript's `Date.parse` accepts date-only and reads
+ * it as UTC midnight, so the JS SDK and server matched where this did not.
+ */
+@RunWith(RobolectricTestRunner::class)
+class DateOnlyConditionTest {
+
+    @Test
+    fun dateOnlyValuesParse() {
+        assertTrue(
+            Conditions.test("after", JsonValue.of("2026-07-29T00:00:00.000Z"), listOf(JsonValue.of("2026-07-03")))
+        )
+        assertFalse(
+            Conditions.test("before", JsonValue.of("2026-07-29T00:00:00.000Z"), listOf(JsonValue.of("2026-07-03")))
+        )
+    }
+
+    @Test
+    fun dateOnlyOnBothSides() {
+        assertTrue(Conditions.test("after", JsonValue.of("2026-07-29"), listOf(JsonValue.of("2026-07-03"))))
+        assertTrue(Conditions.test("before", JsonValue.of("2026-07-03"), listOf(JsonValue.of("2026-07-29"))))
+    }
+
+    /** Read as UTC midnight, matching `Date.parse` — not local midnight. */
+    @Test
+    fun dateOnlyIsUtcMidnight() {
+        assertTrue(
+            Conditions.test("after", JsonValue.of("2026-07-03T00:00:01.000Z"), listOf(JsonValue.of("2026-07-03")))
+        )
+        assertFalse(
+            Conditions.test("after", JsonValue.of("2026-07-02T23:59:59.000Z"), listOf(JsonValue.of("2026-07-03")))
+        )
+    }
+
+    @Test
+    fun stillRejectsNonDates() {
+        assertFalse(Conditions.test("after", JsonValue.of("not-a-date"), listOf(JsonValue.of("2026-07-03"))))
+    }
+}

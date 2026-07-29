@@ -112,13 +112,21 @@ internal object Iso8601 {
             .apply { timeZone = TimeZone.getTimeZone("UTC") }
             .format(date)
 
-    /** Parses the forms that reach a client rule, with or without fractional seconds. */
+    /**
+     * Parses the forms that reach a client rule.
+     *
+     * `yyyy-MM-dd` matters: the dashboard's date picker emits date-only values like
+     * `2026-07-03`. JavaScript's `Date.parse` accepts those and reads them as UTC midnight, so
+     * the JS SDK and the server both match on them. Parsing only full timestamps made every
+     * date-only rule silently fail, skipping scheduled rollouts.
+     */
     fun parse(value: String): Date? {
         val patterns = listOf(
             PATTERN,
             "yyyy-MM-dd'T'HH:mm:ss'Z'",
             "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",
-            "yyyy-MM-dd'T'HH:mm:ssXXX"
+            "yyyy-MM-dd'T'HH:mm:ssXXX",
+            "yyyy-MM-dd"
         )
         for (pattern in patterns) {
             try {
