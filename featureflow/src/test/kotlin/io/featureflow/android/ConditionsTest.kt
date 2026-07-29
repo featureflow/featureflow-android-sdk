@@ -1,5 +1,6 @@
 package io.featureflow.android
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -147,5 +148,48 @@ class DateOnlyConditionTest {
     @Test
     fun stillRejectsNonDates() {
         assertFalse(Conditions.test("after", JsonValue.of("not-a-date"), listOf(JsonValue.of("2026-07-03"))))
+    }
+}
+
+/**
+ * The dashboard emits several date shapes. All must agree with `Date.parse`, which is what
+ * sdk-server and the JavaScript SDK use.
+ */
+@RunWith(RobolectricTestRunner::class)
+class DateFormatParityTest {
+
+    private fun utc(date: java.util.Date) =
+        java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", java.util.Locale.US)
+            .apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
+            .format(date)
+
+    @Test
+    fun everyDashboardDateShapeParsesToTheSameInstantAsDateParse() {
+        // value to expected UTC instant, as produced by JavaScript's Date.parse
+        val cases = listOf(
+            "2026-07-03" to "2026-07-03T00:00:00Z",
+            "2026-07-29T02:03:00+04:00" to "2026-07-28T22:03:00Z",
+            "2026-07-29T02:03:00.000Z" to "2026-07-29T02:03:00Z",
+            "2026-07-29T02:03:00Z" to "2026-07-29T02:03:00Z"
+        )
+        cases.forEach { (value, expected) ->
+            val parsed = Iso8601.parse(value)
+            assertTrue("$value should parse", parsed != null)
+            assertEquals(value, expected, utc(parsed!!))
+        }
+    }
+
+    /** A timezone offset must not be silently dropped by the date-only pattern. */
+    @Test
+    fun offsetIsNotTruncatedByTheDateOnlyPattern() {
+        val withOffset = Iso8601.parse("2026-07-29T02:03:00+04:00")!!
+        val dateOnly = Iso8601.parse("2026-07-29")!!
+        assertTrue("offset form must not collapse to midnight", withOffset.time != dateOnly.time)
+    }
+
+    @Test
+    fun garbageStillReturnsNull() {
+        assertEquals(null, Iso8601.parse("not-a-date"))
+        assertEquals(null, Iso8601.parse("2026-07-29T02:03:00+04:00junk"))
     }
 }

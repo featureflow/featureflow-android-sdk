@@ -1,6 +1,7 @@
 package io.featureflow.android
 
 import org.json.JSONObject
+import java.text.ParsePosition
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -129,13 +130,17 @@ internal object Iso8601 {
             "yyyy-MM-dd"
         )
         for (pattern in patterns) {
-            try {
-                return SimpleDateFormat(pattern, Locale.US)
-                    .apply { timeZone = TimeZone.getTimeZone("UTC") }
-                    .parse(value)
-            } catch (_: Exception) {
-                // Try the next pattern.
-            }
+            // Strict, and the whole string must be consumed. SimpleDateFormat is lenient by
+            // default and `parse` ignores trailing characters, so `yyyy-MM-dd` would happily
+            // swallow "2026-07-29T02:03:00+04:00" and silently return midnight — losing the
+            // time and the offset. Correctness here currently depends on pattern ordering;
+            // this makes it depend on the pattern actually matching.
+            val position = ParsePosition(0)
+            val parsed = SimpleDateFormat(pattern, Locale.US).apply {
+                timeZone = TimeZone.getTimeZone("UTC")
+                isLenient = false
+            }.parse(value, position)
+            if (parsed != null && position.index == value.length) return parsed
         }
         return null
     }
