@@ -44,6 +44,10 @@ internal open class RestClient(
     private val config: FeatureflowConfig
 ) {
 
+    // Validated once: an invalid tag warns at construction, not on every request. Write-only
+    // telemetry — it must never affect response handling and never appears in a URL.
+    private val application: String? = sanitiseApplication(config.application, config.logger)
+
     open fun evaluate(user: FeatureflowUser, keys: List<String> = emptyList()): Map<String, EvaluatedControl> {
         val encoded = base64UrlEncode(user)
         val query = if (keys.isEmpty()) "" else "?keys=" + keys.joinToString(",")
@@ -101,6 +105,7 @@ internal open class RestClient(
             connectTimeout = config.timeoutMillis
             readTimeout = config.timeoutMillis
             setRequestProperty("X-Featureflow-Client", CLIENT_HEADER)
+            application?.let { setRequestProperty("X-Featureflow-Application", it) }
         }
 
     private fun check(connection: HttpURLConnection) {

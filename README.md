@@ -239,7 +239,23 @@ val featureflow = FeatureflowClient.initialize(context, "sdk-js-env-YOUR_KEY", u
 | `eventFlushIntervalMillis` | `30_000` | Milliseconds between event flushes. |
 | `maxEventQueueSize` | `1000` | Bound on queued events during a long offline session. |
 | `timeoutMillis` | `10_000` | Connect and read timeout. |
+| `application` | `null` | A label naming this app, for per-application usage attribution. See below. |
 | `logger` | `null` | An SDK should not write to your logcat uninvited. |
+
+### Naming your application
+
+Optionally tag this app with an application name so the Featureflow dashboard can attribute SDK
+usage and flag evaluations to it (Admin → SDKs, and the "Evaluated by" panel on each feature's
+statistics tab):
+
+```kotlin
+val config = FeatureflowConfig(application = "android-app")
+```
+
+The name is a slug — lowercase letters, numbers, `.`, `_` and `-`, at most 64 characters. An
+invalid value is dropped with a warning and no tag is sent. It rides as the
+`X-Featureflow-Application` header on flag fetches and event posts, and never changes what is
+evaluated or served.
 
 Set `defaultVariants` for any flag whose wrong-way default would be harmful. It is the mobile
 equivalent of the failover variants the server SDKs register — and note the polarity: for a kill

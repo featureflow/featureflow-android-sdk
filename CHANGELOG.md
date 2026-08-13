@@ -1,5 +1,14 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- **`application` config option (application tag).** A label naming this app, sent as the
+  `X-Featureflow-Application` header on every flag fetch and event post so the dashboard can
+  attribute SDK usage and flag evaluations per application. Slug-validated (case forgiven,
+  invalid values dropped with a warning and no header sent). Write-only telemetry — it never
+  changes what is evaluated or served. See CONTRACT.md in featureflow-client-sdk-testbed.
+
 ## [0.1.1] - 2026-08-11
 
 ### Changed

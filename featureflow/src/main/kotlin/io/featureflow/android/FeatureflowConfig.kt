@@ -74,11 +74,45 @@ data class FeatureflowConfig(
     val maxEventQueueSize: Int = 1000,
 
     /**
+     * A label naming this app (e.g. `"android-app"`), sent as the `X-Featureflow-Application`
+     * header on every request so the dashboard can attribute SDK usage and flag evaluations per
+     * application. Write-only telemetry: it never changes what is evaluated or served.
+     *
+     * The value is a slug — lowercase `a-z`, `0-9`, `.`, `_` and `-`, at most 64 characters.
+     * Case is forgiven (lowercased); anything else invalid is dropped with a warning and no
+     * header is sent. Null (the default) sends no header.
+     */
+    val application: String? = null,
+
+    /**
      * Emits SDK diagnostics. Null by default: an SDK should not write to a host app's logcat
      * uninvited.
      */
     val logger: FeatureflowLogger? = null
 )
+
+// Contract slug (featureflow-client-sdk-testbed/CONTRACT.md): lowercase [a-z0-9._-], max 64
+// chars. The server sanitises defensively; the SDK validates strictly so a typo is a visible
+// warning here rather than a silently mangled tag there.
+private val APPLICATION_PATTERN = Regex("^[a-z0-9._-]{1,64}$")
+
+/**
+ * Validate the configured [FeatureflowConfig.application] tag. Case is forgiven (trimmed and
+ * lowercased); anything else invalid is dropped with a warning and no header is sent at all.
+ */
+internal fun sanitiseApplication(raw: String?, logger: FeatureflowLogger?): String? {
+    if (raw.isNullOrEmpty()) return null
+    val value = raw.trim().lowercase()
+    if (!APPLICATION_PATTERN.matches(value)) {
+        logger?.log(
+            FeatureflowLogLevel.WARN,
+            "ignoring application \"$raw\" — must be lowercase a-z, 0-9, dot, underscore or " +
+                "hyphen, max 64 chars"
+        )
+        return null
+    }
+    return value
+}
 
 /** Log sink. Implement to route SDK diagnostics into the host app's logging. */
 fun interface FeatureflowLogger {
