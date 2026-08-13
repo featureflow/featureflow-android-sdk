@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.2.0] - 2026-08-13
 
 ### Added
 - **`application` config option (application tag).** A label naming this app, sent as the

@@ -9,7 +9,7 @@ plugins {
 // Single source of truth for the published version. Must match FeatureflowVersion.CURRENT in
 // RestClient.kt, which is sent as the X-Featureflow-Client header — CI fails a release if they
 // disagree.
-version = "0.1.1"
+version = "0.2.0"
 group = "io.featureflow"
 
 android {

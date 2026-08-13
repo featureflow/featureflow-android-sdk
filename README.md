@@ -18,7 +18,7 @@ Get your Featureflow account at [featureflow.io](https://featureflow.io).
 ```kotlin
 // build.gradle.kts
 dependencies {
-    implementation("io.featureflow:featureflow-android-sdk:0.1.0")
+    implementation("io.featureflow:featureflow-android-sdk:0.2.0")
 }
 ```
 

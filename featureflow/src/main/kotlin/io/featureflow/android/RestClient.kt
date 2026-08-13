@@ -9,7 +9,7 @@ import java.nio.charset.StandardCharsets
 
 /** Version of this SDK. Sent as the `X-Featureflow-Client` header. */
 object FeatureflowVersion {
-    const val CURRENT: String = "0.1.1"
+    const val CURRENT: String = "0.2.0"
 }
 
 internal sealed class FeatureflowException(message: String) : Exception(message) {
